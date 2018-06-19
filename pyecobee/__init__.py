@@ -1,4 +1,5 @@
 ''' Python Code for Communication with the Ecobee Thermostat '''
+from functools import partial
 import requests
 import json
 import os
@@ -35,10 +36,26 @@ def config_from_file(filename, config=None):
 class Ecobee(object):
     ''' Class for storing Ecobee Thermostats and Sensors '''
 
-    def __init__(self, config_filename=None, api_key=None, config=None):
+    def __init__(self, config_filename=None, api_key=None, config=None,
+                 request_pin=None, request_tokens=None, refresh_tokens=None):
         self.thermostats = list()
         self.pin = None
         self.authenticated = False
+        
+        if request_pin is not None:
+            self.request_pin = partial(request_pin, self)
+        else:
+            self.request_pin = self._request_pin
+
+        if request_tokens is not None:
+            self.request_tokens = partial(request_tokens, self)
+        else:
+            self.request_tokens = self._request_tokens
+
+        if refresh_tokens is not None:
+            self.refresh_tokens = partial(refresh_tokens, self)
+        else:
+            self.refresh_tokens = self._refresh_tokens
 
         if config is None:
             self.file_based_config = True
@@ -74,7 +91,7 @@ class Ecobee(object):
 
         self.update()
 
-    def request_pin(self):
+    def _request_pin(self):
         ''' Method to request a PIN from ecobee for authorization '''
         url = 'https://api.ecobee.com/authorize'
         params = {'response_type': 'ecobeePin',
@@ -93,7 +110,7 @@ class Ecobee(object):
               ' and click Authorize.\nAfter authorizing, call request_'
               'tokens() method.')
 
-    def request_tokens(self):
+    def _request_tokens(self):
         ''' Method to request API tokens from ecobee '''
         url = 'https://api.ecobee.com/token'
         params = {'grant_type': 'ecobeePin', 'code': self.authorization_code,
@@ -114,7 +131,7 @@ class Ecobee(object):
                   ' Status code: ' + str(request.status_code))
             return
 
-    def refresh_tokens(self):
+    def _refresh_tokens(self):
         ''' Method to refresh API tokens from ecobee '''
         url = 'https://api.ecobee.com/token'
         params = {'grant_type': 'refresh_token',
